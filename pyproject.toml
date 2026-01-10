@@ -27,6 +27,7 @@ dependencies = [
     "openai>=1.0.0",
     "pdf2image>=1.17.0",
     "Pillow>=10.0.0",
+    "pymupdf>=1.23.0",
     "click>=8.1.0",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
@@ -37,6 +38,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.4.0",
+    "pytest-asyncio>=0.23.0",
     "pytest-cov>=4.1.0",
     "pytest-mock>=3.11.0",
     "black>=23.0.0",
@@ -44,8 +46,19 @@ dev = [
     "mypy>=1.5.0",
 ]
 
+# MCP 服务器支持
+mcp = [
+    "mcp>=1.0.0",
+]
+
+# 所有功能（开发 + MCP）
+all = [
+    "ocrbyme[dev,mcp]",
+]
+
 [project.scripts]
 ocrbyme = "ocrbyme.cli:main"
+ocrbyme-mcp = "ocrbyme.mcp_server:main"
 
 [project.urls]
 Homepage = "https://github.com/xiaofeifei/ocrbyme"

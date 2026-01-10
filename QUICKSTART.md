@@ -383,9 +383,76 @@ ocrbyme document.pdf --pages 1-5
 ## 📚 更多资源
 
 - [完整文档](README.md)
+- [MCP 部署教程](CLAUDE_CODE_DEPLOYMENT.md)
+- [测试文档](TESTING_SUMMARY.md)
 - [项目计划](.claude/plans/concurrent-kindling-pike.md)
 - [阿里云百炼文档](https://help.aliyun.com/zh/model-studio/vision)
 - [Qwen3-VL GitHub](https://github.com/QwenLM/Qwen3-VL)
+
+## 🤖 在 Claude Code 中使用（MCP 服务器）
+
+### 快速配置（3 步）
+
+#### 步骤 1：安装 MCP 支持
+
+```bash
+pip install -e ".[mcp]"
+```
+
+#### 步骤 2：配置 Claude Code
+
+**Windows** - 打开配置文件：
+```powershell
+notepad "%APPDATA%\Claude\claude_desktop_config.json"
+```
+
+**macOS / Linux**：
+```bash
+nano ~/Library/Application\ Support/Claude/claude_desktop_config.json
+```
+
+添加以下配置：
+```json
+{
+  "mcpServers": {
+    "ocrbyme": {
+      "command": "ocrbyme-mcp",
+      "env": {
+        "DASHSCOPE_API_KEY": "sk-你的实际API密钥"
+      }
+    }
+  }
+}
+```
+
+#### 步骤 3：重启 Claude Code 并使用
+
+重启后在对话中使用：
+```
+你：帮我把 C:\Documents\report.pdf 转换成 Markdown
+
+Claude：[调用 pdf_to_markdown 工具]
+      转换完成！
+      - 输出文件：C:\Documents\report.md
+      - 处理页数：15 页
+      - 提取图片：8 张
+```
+
+### MCP 可用功能
+
+- ✅ **PDF 转 Markdown**：完整转换流程
+- ✅ **页码范围**：指定转换页面
+- ✅ **自定义 DPI**：控制分辨率
+- ✅ **图片提取**：自动提取 PDF 图片
+- ✅ **批量处理**：处理多个文件
+
+### 详细的 MCP 配置教程
+
+查看 [CLAUDE_CODE_DEPLOYMENT.md](CLAUDE_CODE_DEPLOYMENT.md) 获取：
+- 多种配置方式
+- 高级选项
+- 故障排除
+- 性能优化建议
 
 ## 🤝 贡献
 

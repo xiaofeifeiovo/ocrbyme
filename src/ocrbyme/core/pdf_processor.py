@@ -1,4 +1,4 @@
-"""PDF 处理器模块 - 将 PDF 转换为图像"""
+"""PDF 处理器模块 - 将 PDF 转换为图像并提取图片"""
 
 import logging
 from pathlib import Path
@@ -8,6 +8,7 @@ import pdf2image
 from PIL import Image
 
 from ocrbyme.models.types import PDFProcessingError
+from ocrbyme.core.pdf_image_extractor import PDFImageExtractor
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +19,18 @@ class PDFProcessor:
     使用 pdf2image 将 PDF 文件转换为 PIL Image 对象。
     """
 
-    def __init__(self, dpi: int = 200, output_format: str = "PNG") -> None:
+    def __init__(
+        self,
+        dpi: int = 200,
+        output_format: str = "PNG",
+        images_dir: Path | None = None,
+    ) -> None:
         """初始化 PDF 处理器
 
         Args:
             dpi: 分辨率 (默认 200 DPI,适合 OCR)
             output_format: 输出格式 (PNG/JPEG,默认 PNG)
+            images_dir: 图片保存目录 (None 表示不提取图片)
 
         Raises:
             PDFProcessingError: 参数无效
@@ -41,6 +48,8 @@ class PDFProcessor:
 
         self.dpi = dpi
         self.output_format = output_format.upper()
+        self.images_dir = images_dir
+        self.image_extractor = PDFImageExtractor(images_dir) if images_dir else None
         logger.info(f"PDF 处理器初始化: DPI={dpi}, 格式={output_format}")
 
     def convert_to_images(
@@ -189,3 +198,62 @@ class PDFProcessor:
 
         except Exception as e:
             raise PDFProcessingError(f"读取 PDF 页数失败: {e}") from e
+
+    def extract_page_images(
+        self,
+        pdf_path: Path | str,
+        page_num: int,
+    ) -> list[tuple[Path, str]]:
+        """从指定页面提取图片
+
+        Args:
+            pdf_path: PDF 文件路径
+            page_num: 页码（从 1 开始）
+
+        Returns:
+            图片路径和描述的列表 [(image_path, description), ...]
+
+        Raises:
+            PDFProcessingError: 图片提取失败
+        """
+        if not self.image_extractor:
+            logger.warning("图片提取器未初始化，跳过图片提取")
+            return []
+
+        try:
+            pdf_path = Path(pdf_path)
+            images = self.image_extractor.extract_images(pdf_path, page_num)
+            logger.info(f"页码 {page_num}: 提取了 {len(images)} 张图片")
+            return images
+        except Exception as e:
+            logger.error(f"提取页面图片失败: {e}")
+            raise PDFProcessingError(f"提取页面图片失败: {e}") from e
+
+    def extract_all_images(
+        self,
+        pdf_path: Path | str,
+    ) -> dict[int, list[tuple[Path, str]]]:
+        """从 PDF 所有页面提取图片
+
+        Args:
+            pdf_path: PDF 文件路径
+
+        Returns:
+            字典 {page_num: [(image_path, description), ...], ...}
+
+        Raises:
+            PDFProcessingError: 图片提取失败
+        """
+        if not self.image_extractor:
+            logger.warning("图片提取器未初始化，跳过图片提取")
+            return {}
+
+        try:
+            pdf_path = Path(pdf_path)
+            all_images = self.image_extractor.extract_all_images(pdf_path)
+            total_images = sum(len(imgs) for imgs in all_images.values())
+            logger.info(f"从 {len(all_images)} 个页面提取了 {total_images} 张图片")
+            return all_images
+        except Exception as e:
+            logger.error(f"提取图片失败: {e}")
+            raise PDFProcessingError(f"提取图片失败: {e}") from e

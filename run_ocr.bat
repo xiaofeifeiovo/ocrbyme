@@ -1,113 +1,220 @@
 @echo off
-chcp 65001 >nul
 setlocal enabledelayedexpansion
 
-:: 设置颜色和标题
+:: ========================================
+:: OCRByMe - PDF to Markdown Converter
+:: ========================================
+
 color 0A
-title OCRByMe - PDF 转 Markdown 工具
+title OCRByMe - PDF to Markdown Converter
 
 echo.
 echo ================================================
-echo        OCRByMe - PDF 转 Markdown 工具
+echo        OCRByMe - PDF to Markdown Converter
 echo ================================================
 echo.
 
-:: 检查虚拟环境
+:: Check virtual environment
 if not exist "venv\Scripts\activate.bat" (
-    echo ❌ 错误: 虚拟环境未找到！
-    echo 请先运行安装脚本或手动创建虚拟环境
+    echo [ERROR] Virtual environment not found!
+    echo Please install the project first.
     echo.
     pause
     exit /b 1
 )
 
-:: 激活虚拟环境
+:: Activate virtual environment
 call "venv\Scripts\activate.bat"
 
-:: 创建输出文件夹
+:: Create output folder
 if not exist "out" mkdir "out"
 
-:: 查找 PDF 文件（排除测试文件）
-set "pdf_found=0"
+:: ========================================
+:: Parameter Handling
+:: ========================================
+
 set "pdf_file="
 
-:: 遍历当前目录的 PDF 文件
-for %%f in (*.pdf) do (
-    :: 排除测试文件
-    echo %%f | findstr /i "test_document enriched_test" >nul
-    if errorlevel 1 (
-        set "pdf_file=%%f"
-        set "pdf_found=1"
-        goto :found_pdf
+:: Method 1: Check command line argument
+if not "%~1"=="" (
+    set "pdf_file=%~1"
+    echo [INFO] Using command line argument: %pdf_file%
+    goto :validate_file
+)
+
+:: Method 2: Try to read from clipboard
+echo [INFO] No command line argument provided.
+echo [INFO] Attempting to read file path from clipboard...
+echo.
+
+for /f "usebackq delims=" %%p in (`powershell -NoProfile -Command "try { Get-Clipboard } catch { '' }"`) do (
+    set "clipboard_content=%%p"
+)
+
+:: Remove quotes and trim
+set "pdf_file=!clipboard_content!"
+set "pdf_file=!pdf_file:"=!"
+
+:: Check if clipboard contains a file path
+if not "!pdf_file!"=="" (
+    echo [INFO] Clipboard content: !pdf_file!
+
+    :: Check if it ends with .pdf
+    for %%i in ("!pdf_file!") do set "ext=%%~xi"
+    if /i "!ext!"==".pdf" (
+        echo [INFO] Clipboard contains PDF path, attempting to use it...
+        goto :validate_file
     )
 )
 
-if "%pdf_found%"=="0" (
+:: Method 3: Search in current directory
+echo [INFO] No valid PDF path in clipboard.
+echo [INFO] Searching in current directory...
+echo.
+
+for %%f in (*.pdf) do (
+    set "testname=%%f"
+    set "pdf_file=%%f"
+
+    :: Check if filename contains test keywords
+    set "exclude=0"
+
+    echo !testname! | findstr /i "test_document" >nul
+    if not errorlevel 1 set "exclude=1"
+
+    echo !testname! | findstr /i "enriched_test" >nul
+    if not errorlevel 1 set "exclude=1"
+
+    echo !testname! | findstr /i "demo_sample" >nul
+    if not errorlevel 1 set "exclude=1"
+
+    if "!exclude!"=="0" (
+        echo [INFO] Found PDF: !pdf_file!
+        echo.
+        goto :validate_file
+    )
+)
+
+:: If we get here, no PDF was found
+echo.
+echo [ERROR] No PDF file found!
+echo.
+echo Please use one of these methods:
+echo   Method 1: Copy PDF file path to clipboard, then run this batch file
+echo   Method 2: Run: run_ocr.bat "path\to\file.pdf"
+echo   Method 3: Copy PDF to this folder and double-click this batch file
+echo.
+pause
+exit /b 1
+
+:validate_file
+:: ========================================
+:: Validate File
+:: ========================================
+
+echo.
+echo [INFO] Validating file...
+
+:: Check if file exists
+if not exist "!pdf_file!" (
+    echo [ERROR] File not found: !pdf_file!
     echo.
-    echo ❌ 未找到 PDF 文件！
-    echo.
-    echo 使用方法:
-    echo   1. 将要转换的 PDF 文件复制到此文件夹
-    echo   2. 双击运行此批处理文件
-    echo   3. 生成的 Markdown 文件将保存在 out 文件夹中
-    echo   4. 内容将自动复制到剪贴板
+    echo Please check the file path and try again.
     echo.
     pause
     exit /b 1
 )
 
-:found_pdf
-echo.
-echo ✅ 找到 PDF 文件: %pdf_file%
+echo [OK] File exists: !pdf_file!
+
+:: Check if it's a PDF
+for %%i in ("!pdf_file!") do set "ext=%%~xi"
+if /i not "!ext!"==".pdf" (
+    echo [ERROR] Not a PDF file: !pdf_file!
+    echo.
+    pause
+    exit /b 1
+)
+
+echo [OK] File is a PDF.
 echo.
 
-:: 获取文件名（不含扩展名）
+:: ========================================
+:: Run OCR Conversion
+:: ========================================
+
+:: Get filename without extension
 for %%i in ("%pdf_file%") do set "filename=%%~ni"
 
-:: 设置输出路径
+:: Set output path
 set "output_md=out\%filename%.md"
 
-:: 运行 OCR 转换
-echo 🚀 开始处理...
-echo.
-echo 输入文件: %pdf_file%
-echo 输出文件: %output_md%
+echo [INFO] Starting conversion...
+echo   Input:  !pdf_file!
+echo   Output: !output_md!
 echo.
 
-ocrbyme "%pdf_file%" -o "%output_md%"
+ocrbyme "!pdf_file!" -o "!output_md!"
 
-:: 检查处理结果
-if exist "%output_md%" (
+:: Check conversion result
+set "conversion_success=0"
+if exist "!output_md!" (
+    set "conversion_success=1"
+)
+
+:: ========================================
+:: Post-Processing
+:: ========================================
+
+if "!conversion_success!"=="1" (
     echo.
-    echo ✅ 转换成功！
-    echo.
-    echo 📁 输出文件: %output_md%
+    echo [SUCCESS] Conversion completed!
+    echo   Output: !output_md!
     echo.
 
-    :: 复制到剪贴板
-    echo 📋 正在复制到剪贴板...
-    powershell -Command "Get-Content '%output_md%' -Raw | Set-Clipboard"
+    :: Copy to clipboard with proper encoding (compatible with old PowerShell)
+    echo [INFO] Copying to clipboard...
+
+    :: Use compatible method for older PowerShell versions
+    powershell -NoProfile -Command ^
+        "$content = [System.IO.File]::ReadAllText('!output_md!'); " ^
+        "$bytes = [System.Text.Encoding]::UTF8.GetBytes($content); " ^
+        "$stream = [System.IO.MemoryStream]::new(); " ^
+        "$stream.Write($bytes, 0, $bytes.Length); " ^
+        "$stream.Position = 0; " ^
+        "$reader = [System.IO.StreamReader]::new($stream); " ^
+        "$text = $reader.ReadToEnd(); " ^
+        "$reader.Close(); " ^
+        "$stream.Close(); " ^
+        "$text | Set-Clipboard"
 
     if errorlevel 1 (
-        echo ⚠️  剪贴板复制失败（可能需要管理员权限）
+        echo [WARNING] UTF-8 copy failed, trying simple method...
+        powershell -NoProfile -Command "[System.IO.File]::ReadAllText('!output_md!') | Set-Clipboard"
+        if errorlevel 1 (
+            echo [ERROR] Clipboard copy failed. Please manually copy from: !output_md!
+        ) else (
+            echo [OK] Copied to clipboard!
+        )
     ) else (
-        echo ✅ 内容已复制到剪贴板！
-        echo.
-        echo 💡 提示: 按 Ctrl+V 可以直接粘贴
+        echo [OK] Copied to clipboard with UTF-8 encoding!
     )
 
-    :: 打开输出文件夹
     echo.
-    echo 📂 正在打开输出文件夹...
-    explorer "out"
+    echo [TIP] Press Ctrl+V to paste the Markdown content
+    echo.
+
+    :: Open output folder
+    echo [INFO] Opening output folder...
+    start "" "out"
 
 ) else (
     echo.
-    echo ❌ 转换失败！
-    echo 请检查错误信息
+    echo [ERROR] Conversion failed!
+    echo Please check error messages above.
 )
 
 echo.
 echo ================================================
-echo 按任意键退出...
+echo Press any key to exit...
 pause >nul

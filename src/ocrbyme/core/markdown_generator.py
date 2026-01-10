@@ -59,6 +59,7 @@ class MarkdownGenerator:
         ocr_results: list[str],
         metadata: dict[str, Any] | None = None,
         output_path: Path | None = None,
+        extracted_images: dict[int, list[tuple[Path, str]]] | None = None,
     ) -> Path:
         """生成最终的 Markdown 文件
 
@@ -66,6 +67,7 @@ class MarkdownGenerator:
             ocr_results: 每页的 OCR 结果 (Markdown 文本列表)
             metadata: 元数据 (来源 PDF,页数等)
             output_path: 输出文件路径 (None 则使用默认名称)
+            extracted_images: 从 PDF 提取的图片 {page_num: [(image_path, description), ...]}
 
         Returns:
             生成的 Markdown 文件路径
@@ -88,7 +90,7 @@ class MarkdownGenerator:
 
             # 构建最终 Markdown 内容
             markdown_content = self._build_markdown(
-                processed_results, metadata, saved_images
+                processed_results, metadata, saved_images, extracted_images
             )
 
             # 确定输出路径
@@ -115,13 +117,15 @@ class MarkdownGenerator:
         ocr_results: list[str],
         metadata: dict[str, Any] | None,
         saved_images: list[Path],
+        extracted_images: dict[int, list[tuple[Path, str]]] | None = None,
     ) -> str:
         """构建 Markdown 内容
 
         Args:
             ocr_results: 处理后的 OCR 结果
             metadata: 元数据
-            saved_images: 保存的图片列表
+            saved_images: 从 OCR 结果中保存的图片列表
+            extracted_images: 从 PDF 提取的图片 {page_num: [(image_path, description), ...]}
 
         Returns:
             完整的 Markdown 内容
@@ -152,6 +156,14 @@ class MarkdownGenerator:
             lines.append("")
             lines.append("---")
             lines.append("")
+
+            # 插入从 PDF 提取的图片
+            if extracted_images and page_num in extracted_images:
+                for image_path, description in extracted_images[page_num]:
+                    # 使用相对路径（相对于 MD 文件）
+                    rel_path = image_path.relative_to(self.output_dir)
+                    lines.append(f"![{description}]({rel_path})")
+                    lines.append("")
 
             # OCR 结果
             lines.append(result)

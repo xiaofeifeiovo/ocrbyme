@@ -69,9 +69,8 @@ def test_invalid_dpi(monkeypatch: pytest.MonkeyPatch) -> None:
     # 重置缓存
     reset_settings()
 
-    settings = get_settings()
-
+    # get_settings() 在返回前会调用 validate()，所以异常在这里抛出
     with pytest.raises(ConfigurationError) as exc_info:
-        settings.validate()
+        get_settings()
 
     assert "DPI" in str(exc_info.value)

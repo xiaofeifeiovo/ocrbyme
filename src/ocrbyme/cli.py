@@ -212,8 +212,13 @@ def main(
         # ========== 3. 转换 PDF 为图像 ==========
         console.print("\n[bold yellow]📷 步骤 1/3: 转换 PDF 为图像...[/bold yellow]")
 
+        # 创建输出目录和图片目录
+        output_dir = output.parent
+        images_dir = output_dir / "images"
+        images_dir.mkdir(parents=True, exist_ok=True)
+
         try:
-            processor = PDFProcessor(dpi=dpi)
+            processor = PDFProcessor(dpi=dpi, images_dir=images_dir)
             first = page_numbers[0]
             last = page_numbers[-1]
 
@@ -297,7 +302,16 @@ def main(
         console.print("\n[bold yellow]📝 步骤 3/3: 生成 Markdown...[/bold yellow]")
 
         try:
-            output_dir = output.parent
+            # 提取 PDF 中的图片
+            console.print("   [info]正在提取 PDF 嵌入图片...", )
+            extracted_images = processor.extract_all_images(input_pdf)
+
+            if extracted_images:
+                total_images = sum(len(imgs) for imgs in extracted_images.values())
+                console.print(f" ✅ 提取了 {total_images} 张图片")
+            else:
+                console.print(" ℹ️  未找到图片")
+
             markdown_gen = MarkdownGenerator(
                 output_dir=output_dir,
                 extract_images=not no_extract_images,
@@ -308,7 +322,9 @@ def main(
                 "page_count": len(page_numbers),
             }
 
-            output_path = markdown_gen.generate(ocr_results, metadata, output)
+            output_path = markdown_gen.generate(
+                ocr_results, metadata, output, extracted_images
+            )
             console.print(f"✅ Markdown 文件已生成: {output_path}")
 
         except Exception as e:

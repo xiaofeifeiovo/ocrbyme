@@ -205,6 +205,126 @@ document_images/
 - **默认 DPI**: 200 (平衡质量和速度)
 - **输出格式**: PNG (无损)
 
+## MCP 服务器支持
+
+OCRByMe 可以作为 [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) 服务器运行，允许 AI 助手（如 Claude Desktop、Cursor）直接调用 PDF 转 Markdown 功能。
+
+### 安装 MCP 支持
+
+```bash
+# 安装基础功能 + MCP 支持
+pip install -e ".[mcp]"
+
+# 或安装所有功能（开发 + MCP）
+pip install -e ".[all]"
+```
+
+### 使用 MCP Inspector 调试
+
+```bash
+# 设置 API Key
+set DASHSCOPE_API_KEY=your_api_key_here
+
+# 启动 MCP Inspector
+npx @modelcontextprotocol/inspector ocrbyme-mcp
+```
+
+Inspector 会自动打开浏览器界面，你可以测试 `pdf_to_markdown` 工具的调用。
+
+### Claude Desktop 配置
+
+编辑 Claude Desktop 配置文件：
+
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+
+添加以下配置：
+
+```json
+{
+  "mcpServers": {
+    "ocrbyme": {
+      "command": "ocrbyme-mcp",
+      "env": {
+        "DASHSCOPE_API_KEY": "your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+如果使用虚拟环境，可以指定完整路径：
+
+```json
+{
+  "mcpServers": {
+    "ocrbyme": {
+      "command": "venv\\Scripts\\python.exe",
+      "args": ["-m", "ocrbyme.mcp_server"],
+      "env": {
+        "DASHSCOPE_API_KEY": "your_api_key_here",
+        "PYTHONPATH": "C:\\Users\\xiaofeifei\\Desktop\\workspace\\ocrbyme\\src"
+      }
+    }
+  }
+}
+```
+
+重启 Claude Desktop 后即可在对话中使用 PDF 转换功能：
+
+```
+你：帮我把 C:\docs\report.pdf 转换成 Markdown 格式
+Claude：[调用 pdf_to_markdown 工具] 已完成转换，生成了 report.md，共 15 页...
+```
+
+### 可用工具
+
+MCP 服务器提供以下工具：
+
+#### `pdf_to_markdown`
+将 PDF 文件转换为 Markdown 格式
+
+**参数**：
+- `pdf_path` (必需): PDF 文件的绝对路径
+- `output_path` (可选): 输出 Markdown 文件路径，默认为 input_pdf.md
+- `pages` (可选): 页码范围，例如 "1-5" 或 "1,3,5-7"
+- `dpi` (可选): PDF 转图像的 DPI，默认 200（范围：72-600）
+- `extract_images` (可选): 是否提取 PDF 嵌入图片，默认 true
+- `timeout` (可选): API 请求超时时间（秒），默认 60
+
+**返回**：JSON 格式的处理结果
+```json
+{
+  "success": true,
+  "output_path": "C:\\docs\\report.md",
+  "page_count": 15,
+  "images_extracted": 8
+}
+```
+
+### 在其他 AI 工具中使用
+
+#### Cursor
+
+在 Cursor 的 MCP 配置中添加：
+
+```json
+{
+  "mcpServers": {
+    "ocrbyme": {
+      "command": "ocrbyme-mcp",
+      "env": {
+        "DASHSCOPE_API_KEY": "your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+#### Cline (VSCode 插件)
+
+在 Cline 的 MCP 配置中添加相同的配置。
+
 ## 开发
 
 ### 运行测试
