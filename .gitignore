@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment variables
+.env
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+temp_*.png
+temp_*.jpg
+*.pdf
+!tests/fixtures/*.pdf
+
+# Output files
+out/
+*.md
+!README.md
+!QUICKSTART.md
+!快速开始.md
+!批处理使用说明.md
+!docs/**/*.md
+
+# Test generated files
+*_test_document.md
+*test_*.md
+*enriched_test*.md
+*demo_sample*.md
