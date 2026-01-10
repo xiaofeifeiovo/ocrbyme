@@ -51,6 +51,9 @@ temp_*.jpg
 *.pdf
 !tests/fixtures/*.pdf
 
+# Test generated images
+images/
+
 # Output files
 out/
 *.md
