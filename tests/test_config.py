@@ -18,7 +18,7 @@ def test_get_settings_with_valid_key(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.dashscope_api_key == "sk-test-key-1234567890"
     assert settings.api_base_url == "https://dashscope.aliyuncs.com/compatible-mode/v1"
     assert settings.model_name == "qwen3-vl-flash"
-    assert settings.default_dpi == 200
+    assert settings.default_dpi == 300  # 更新为新的默认值
 
 
 def test_get_settings_with_invalid_key(monkeypatch: pytest.MonkeyPatch) -> None:

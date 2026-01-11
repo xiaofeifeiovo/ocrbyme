@@ -11,6 +11,7 @@ from mcp.server.fastmcp import FastMCP
 
 from ocrbyme.config import Settings
 from ocrbyme.core import MarkdownGenerator, PDFProcessor, QwenVLClient
+from ocrbyme.core.prompt_templates import PromptTemplate
 from ocrbyme.models.types import (
     APIError,
     ConfigurationError,
@@ -28,9 +29,12 @@ async def pdf_to_markdown(
     pdf_path: str,
     output_path: str | None = None,
     pages: str | None = None,
-    dpi: int = 200,
+    dpi: int = 300,
     extract_images: bool = True,
     timeout: int = 60,
+    ocr_mode: str = "academic",
+    custom_prompt: str | None = None,
+    enhance_images: bool = True,
 ) -> str:
     """将 PDF 文件转换为 Markdown 格式
 
@@ -38,9 +42,12 @@ async def pdf_to_markdown(
         pdf_path: PDF 文件的绝对路径
         output_path: 输出 Markdown 文件路径（默认为 input_pdf.md）
         pages: 页码范围，例如 "1-5" 或 "1,3,5-7"（默认：全部页面）
-        dpi: PDF 转图像的 DPI，默认 200（范围：72-600）
+        dpi: PDF 转图像的 DPI，默认 300（范围：72-600）
         extract_images: 是否提取和保存 PDF 嵌入的图片，默认 True
         timeout: API 请求超时时间（秒），默认 60
+        ocr_mode: OCR 模式 (academic/document/table/formula/mixed)，默认 academic
+        custom_prompt: 自定义提示词指令（可选）
+        enhance_images: 是否启用图像增强预处理，默认 True
 
     Returns:
         JSON 字符串，包含：
@@ -52,7 +59,7 @@ async def pdf_to_markdown(
 
     Example:
         pdf_to_markdown("C:/docs/document.pdf")
-        pdf_to_markdown("C:/docs/document.pdf", pages="1-5", dpi=300)
+        pdf_to_markdown("C:/docs/document.pdf", pages="1-5", dpi=300, ocr_mode="academic")
     """
     try:
         # 1. 验证输入
@@ -80,7 +87,11 @@ async def pdf_to_markdown(
 
         # 5. 转换 PDF 为图像
         logger.info(f"开始转换 PDF: {pdf_file.name}, 页数: {len(page_numbers)}")
-        processor = PDFProcessor(dpi=dpi, images_dir=images_dir)
+        processor = PDFProcessor(
+            dpi=dpi,
+            images_dir=images_dir,
+            enable_image_enhancement=enhance_images,
+        )
         first = page_numbers[0]
         last = page_numbers[-1]
         images = processor.convert_to_images(pdf_file, first_page=first, last_page=last)
@@ -96,12 +107,25 @@ async def pdf_to_markdown(
                 img.save(img_path)
                 image_paths.append(img_path)
 
+            # 获取提示词
+            prompt = PromptTemplate.get_prompt(
+                mode=ocr_mode,
+                custom_instruction=custom_prompt,
+            )
+
             # 使用自定义 api_key 初始化客户端
             ocr_client = QwenVLClient(
                 api_key=settings.dashscope_api_key,
-                timeout=timeout
+                timeout=timeout,
+                temperature=settings.temperature,
             )
-            ocr_results = ocr_client.ocr_images_batch(image_paths)
+
+            # 批量 OCR 处理
+            ocr_results = []
+            for img_path in image_paths:
+                result = ocr_client.ocr_image(img_path, prompt=prompt)
+                ocr_results.append(result)
+
             ocr_client.close()
         logger.info("OCR 处理完成")
 

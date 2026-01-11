@@ -23,6 +23,7 @@ from rich.progress import (
 from ocrbyme import __version__
 from ocrbyme.config import get_settings
 from ocrbyme.core import MarkdownGenerator, PDFProcessor, QwenVLClient
+from ocrbyme.core.prompt_templates import PromptTemplate, OCRMode
 from ocrbyme.models.types import (
     APIError,
     ConfigurationError,
@@ -147,6 +148,34 @@ def parse_page_range(
     is_flag=True,
     help="显示详细日志",
 )
+@click.option(
+    "--ocr-mode",
+    type=click.Choice(
+        ["academic", "document", "table", "formula", "mixed"],
+        case_sensitive=False
+    ),
+    default="academic",
+    show_default=True,
+    help="OCR 模式 (academic=学术论文, document=通用文档, table=表格, formula=公式, mixed=混合)",
+)
+@click.option(
+    "--custom-prompt",
+    type=str,
+    default=None,
+    help="自定义提示词指令 (追加到默认提示词末尾)",
+)
+@click.option(
+    "--enhance-images/--no-enhance-images",
+    default=True,
+    show_default=True,
+    help="启用/禁用图像增强预处理 (提升识别质量)",
+)
+@click.option(
+    "--temperature",
+    type=float,
+    default=None,
+    help="API 温度参数 (0.0-2.0, 默认 0.0, 值越小越稳定)",
+)
 @click.version_option(version=__version__)
 def main(
     input_pdf: Path,
@@ -158,6 +187,10 @@ def main(
     no_extract_images: bool,
     timeout: int,
     verbose: bool,
+    ocr_mode: str,
+    custom_prompt: str | None,
+    enhance_images: bool,
+    temperature: float | None,
 ) -> None:
     """PDF 转 Markdown OCR 工具 - 使用 Qwen3-VL-Flash API
 
@@ -218,7 +251,11 @@ def main(
         images_dir.mkdir(parents=True, exist_ok=True)
 
         try:
-            processor = PDFProcessor(dpi=dpi, images_dir=images_dir)
+            processor = PDFProcessor(
+                dpi=dpi,
+                images_dir=images_dir,
+                enable_image_enhancement=enhance_images,
+            )
             first = page_numbers[0]
             last = page_numbers[-1]
 
@@ -260,8 +297,17 @@ def main(
                     img.save(img_path)
                     image_paths.append(img_path)
 
+                # 获取提示词
+                prompt = PromptTemplate.get_prompt(
+                    mode=ocr_mode,
+                    custom_instruction=custom_prompt,
+                )
+
                 # OCR 处理
-                ocr_client = QwenVLClient(timeout=timeout)
+                ocr_client = QwenVLClient(
+                    timeout=timeout,
+                    temperature=temperature,
+                )
 
                 with Progress(
                     SpinnerColumn(),
@@ -276,7 +322,7 @@ def main(
                     ocr_results = []
                     for img_path in image_paths:
                         try:
-                            markdown = ocr_client.ocr_image(img_path)
+                            markdown = ocr_client.ocr_image(img_path, prompt=prompt)
                             ocr_results.append(markdown)
                         except Exception as e:
                             logger.error(f"OCR 失败: {e}")

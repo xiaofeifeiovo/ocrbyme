@@ -27,6 +27,8 @@ class QwenVLClient:
         base_url: str | None = None,
         model: str | None = None,
         timeout: int = 60,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> None:
         """初始化 OCR 客户端
 
@@ -35,6 +37,8 @@ class QwenVLClient:
             base_url: API 端点 (None 则使用默认值)
             model: 模型名称 (None 则使用默认值)
             timeout: 请求超时 (秒)
+            temperature: 温度参数 (0.0-2.0, 默认 0.0)
+            max_tokens: 最大输出 token 数
 
         Raises:
             APIError: 初始化失败
@@ -47,6 +51,8 @@ class QwenVLClient:
         self.model = model or settings.model_name
         self.timeout = timeout
         self.high_resolution = settings.high_resolution
+        self.temperature = temperature if temperature is not None else settings.temperature
+        self.max_tokens = max_tokens if max_tokens is not None else settings.max_tokens
 
         # 初始化 OpenAI 客户端
         try:
@@ -129,10 +135,10 @@ class QwenVLClient:
         base64_url = self._encode_image_to_base64(image_path)
 
         try:
-            # 调用 API
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
+            # 构建请求参数
+            request_params: dict[str, Any] = {
+                "model": self.model,
+                "messages": [
                     {
                         "role": "user",
                         "content": [
@@ -147,10 +153,21 @@ class QwenVLClient:
                         ],
                     }
                 ],
-                extra_body={
+                "extra_body": {
                     "vl_high_resolution_images": self.high_resolution
                 },
-            )
+            }
+
+            # 添加温度参数 (提高稳定性)
+            if self.temperature is not None:
+                request_params["temperature"] = self.temperature
+
+            # 添加 max_tokens 参数
+            if self.max_tokens is not None:
+                request_params["max_tokens"] = self.max_tokens
+
+            # 调用 API
+            response = self.client.chat.completions.create(**request_params)
 
             # 提取结果
             markdown_text = response.choices[0].message.content

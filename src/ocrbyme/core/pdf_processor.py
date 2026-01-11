@@ -9,6 +9,7 @@ from PIL import Image
 
 from ocrbyme.models.types import PDFProcessingError
 from ocrbyme.core.pdf_image_extractor import PDFImageExtractor
+from ocrbyme.core.image_preprocessor import ImagePreprocessor
 
 logger = logging.getLogger(__name__)
 
@@ -21,16 +22,20 @@ class PDFProcessor:
 
     def __init__(
         self,
-        dpi: int = 200,
+        dpi: int = 300,
         output_format: str = "PNG",
         images_dir: Path | None = None,
+        enable_image_enhancement: bool = True,
+        enhancement_config: dict | None = None,
     ) -> None:
         """初始化 PDF 处理器
 
         Args:
-            dpi: 分辨率 (默认 200 DPI,适合 OCR)
+            dpi: 分辨率 (默认 300 DPI,适合 OCR)
             output_format: 输出格式 (PNG/JPEG,默认 PNG)
             images_dir: 图片保存目录 (None 表示不提取图片)
+            enable_image_enhancement: 是否启用图像增强
+            enhancement_config: 图像增强配置 (None=使用默认值)
 
         Raises:
             PDFProcessingError: 参数无效
@@ -50,7 +55,20 @@ class PDFProcessor:
         self.output_format = output_format.upper()
         self.images_dir = images_dir
         self.image_extractor = PDFImageExtractor(images_dir) if images_dir else None
-        logger.info(f"PDF 处理器初始化: DPI={dpi}, 格式={output_format}")
+
+        # 初始化图像预处理器
+        if enhancement_config is None:
+            enhancement_config = {}
+
+        self.image_preprocessor = ImagePreprocessor(
+            enable_enhancement=enable_image_enhancement,
+            **enhancement_config
+        ) if enable_image_enhancement else None
+
+        logger.info(
+            f"PDF 处理器初始化: DPI={dpi}, 格式={output_format}, "
+            f"图像增强={enable_image_enhancement}"
+        )
 
     def convert_to_images(
         self,
@@ -99,6 +117,11 @@ class PDFProcessor:
 
             # 转换 PDF
             images = pdf2image.convert_from_path(pdf_path, **kwargs)
+
+            # 应用图像预处理
+            if self.image_preprocessor is not None:
+                logger.info("应用图像增强预处理...")
+                images = [self.image_preprocessor.preprocess(img) for img in images]
 
             logger.info(f"PDF 转换完成: {len(images)} 页")
             return images

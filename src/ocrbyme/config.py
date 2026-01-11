@@ -22,11 +22,19 @@ class Settings(BaseSettings):
     model_name: str = "qwen3-vl-flash"
 
     # PDF 处理配置
-    default_dpi: int = 200
+    default_dpi: int = 300  # 提高默认 DPI 以提升识别质量
     default_output_format: str = "PNG"
 
+    # 图像增强配置
+    enable_image_enhancement: bool = True
+    contrast_factor: float = 1.2
+    sharpness_factor: float = 1.5
+    brightness_factor: float = 1.0
+    apply_denoise: bool = True
+
     # OCR 配置
-    default_prompt: str = "qwenvl markdown"
+    ocr_mode: str = "academic"  # OCR 模式 (academic/document/table/formula/mixed)
+    custom_prompt_instruction: str = ""
     timeout: int = 60
     max_retries: int = 3
     retry_delay: float = 1.0
@@ -34,10 +42,18 @@ class Settings(BaseSettings):
 
     # 高分辨率模式 (提升识别精度)
     high_resolution: bool = True
+    temperature: float = 0.0  # 温度参数 (0=最稳定, 1=最随机)
+    max_tokens: int | None = None
 
     # 输出配置
     extract_images: bool = True
     image_subdir: str = "images"
+
+    # 兼容性配置
+    @property
+    def default_prompt(self) -> str:
+        """默认提示词 (兼容旧配置)"""
+        return self.ocr_mode
 
     # 模型配置
     model_config = SettingsConfigDict(
@@ -69,6 +85,13 @@ class Settings(BaseSettings):
             raise ConfigurationError(
                 f"超时设置无效: {self.timeout}。"
                 "超时应在 1 到 600 秒之间。"
+            )
+
+        # 验证温度参数
+        if self.temperature < 0.0 or self.temperature > 2.0:
+            raise ConfigurationError(
+                f"温度参数无效: {self.temperature}。"
+                "温度应在 0.0 到 2.0 之间。"
             )
 
 

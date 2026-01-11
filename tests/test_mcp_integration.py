@@ -352,6 +352,7 @@ class TestManualTestingHelpers:
                 return result_data
 
     @staticmethod
+    @pytest.mark.asyncio
     async def test_tool_schema():
         """
         手动测试：查看工具的详细 schema

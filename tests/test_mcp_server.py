@@ -153,8 +153,10 @@ class TestPdfToMarkdownTool:
     @patch('ocrbyme.mcp_server.PDFProcessor')
     @patch('ocrbyme.mcp_server.QwenVLClient')
     @patch('ocrbyme.mcp_server.MarkdownGenerator')
+    @patch('ocrbyme.mcp_server.PromptTemplate')
     async def test_successful_conversion(
         self,
+        mock_prompt_template,
         mock_markdown_gen,
         mock_ocr_client,
         mock_pdf_processor,
@@ -169,6 +171,9 @@ class TestPdfToMarkdownTool:
         test_pdf = tmp_path / "test.pdf"
         test_pdf.write_bytes(b"%PDF-1.4 fake pdf")
 
+        # Mock PromptTemplate
+        mock_prompt_template.get_prompt.return_value = "test prompt"
+
         # Mock PDFProcessor
         mock_processor_instance = MagicMock()
         mock_processor_instance.convert_to_images.return_value = [MagicMock(), MagicMock()]
@@ -178,7 +183,7 @@ class TestPdfToMarkdownTool:
 
         # Mock QwenVLClient
         mock_client_instance = MagicMock()
-        mock_client_instance.ocr_images_batch.return_value = ["# Page 1", "# Page 2"]
+        mock_client_instance.ocr_image.return_value = "# Page 1"
         mock_ocr_client.return_value = mock_client_instance
 
         # Mock MarkdownGenerator
@@ -189,7 +194,7 @@ class TestPdfToMarkdownTool:
         # 执行转换
         result = await pdf_to_markdown(
             pdf_path=str(test_pdf),
-            dpi=200,
+            dpi=300,
             extract_images=True,
             timeout=60
         )
@@ -203,15 +208,17 @@ class TestPdfToMarkdownTool:
 
         # 验证调用
         mock_processor_instance.convert_to_images.assert_called_once()
-        mock_client_instance.ocr_images_batch.assert_called_once()
+        assert mock_client_instance.ocr_image.call_count == 2
         mock_gen_instance.generate.assert_called_once()
 
     @pytest.mark.asyncio
     @patch('ocrbyme.mcp_server.PDFProcessor')
     @patch('ocrbyme.mcp_server.QwenVLClient')
     @patch('ocrbyme.mcp_server.MarkdownGenerator')
+    @patch('ocrbyme.mcp_server.PromptTemplate')
     async def test_conversion_with_page_range(
         self,
+        mock_prompt_template,
         mock_markdown_gen,
         mock_ocr_client,
         mock_pdf_processor,
@@ -224,6 +231,9 @@ class TestPdfToMarkdownTool:
         test_pdf = tmp_path / "test.pdf"
         test_pdf.write_bytes(b"%PDF-1.4 fake pdf")
 
+        # Mock PromptTemplate
+        mock_prompt_template.get_prompt.return_value = "test prompt"
+
         # Mock PDFProcessor
         mock_processor_instance = MagicMock()
         mock_processor_instance.convert_to_images.return_value = [MagicMock()]
@@ -233,7 +243,7 @@ class TestPdfToMarkdownTool:
 
         # Mock QwenVLClient
         mock_client_instance = MagicMock()
-        mock_client_instance.ocr_images_batch.return_value = ["# Page 5"]
+        mock_client_instance.ocr_image.return_value = "# Page 5"
         mock_ocr_client.return_value = mock_client_instance
 
         # Mock MarkdownGenerator
@@ -245,7 +255,7 @@ class TestPdfToMarkdownTool:
         result = await pdf_to_markdown(
             pdf_path=str(test_pdf),
             pages="5",
-            dpi=200
+            dpi=300
         )
 
         data = json.loads(result)
@@ -286,8 +296,10 @@ class TestPdfToMarkdownTool:
     @pytest.mark.asyncio
     @patch('ocrbyme.mcp_server.PDFProcessor')
     @patch('ocrbyme.mcp_server.QwenVLClient')
+    @patch('ocrbyme.mcp_server.PromptTemplate')
     async def test_api_error(
         self,
+        mock_prompt_template,
         mock_ocr_client,
         mock_pdf_processor,
         monkeypatch,
@@ -299,6 +311,9 @@ class TestPdfToMarkdownTool:
         test_pdf = tmp_path / "test.pdf"
         test_pdf.write_bytes(b"%PDF-1.4 fake pdf")
 
+        # Mock PromptTemplate
+        mock_prompt_template.get_prompt.return_value = "test prompt"
+
         # Mock PDFProcessor
         mock_processor_instance = MagicMock()
         mock_processor_instance.convert_to_images.return_value = [MagicMock()]
@@ -309,7 +324,7 @@ class TestPdfToMarkdownTool:
         # Mock API 错误
         from ocrbyme.models.types import APIError
         mock_client_instance = MagicMock()
-        mock_client_instance.ocr_images_batch.side_effect = APIError(
+        mock_client_instance.ocr_image.side_effect = APIError(
             "API 调用失败: 401"
         )
         mock_ocr_client.return_value = mock_client_instance
